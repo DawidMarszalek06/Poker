@@ -25,4 +25,4 @@ Full/30:1
 Kolor/20:1
 AA lub wyżej/7:1
 
-Wybraliśmy tą grę, ponieważ jest bliska naszemu sercu i ciekawi nas wpływ jaki wywiera psychicznie na decyzję człowieka w obliczu podjęcia decyzji.
+Wybraliśmy tą grę, ponieważ jest bliska naszemu sercu i ciekawi nas wpływ jaki wywiera na psychikę człowieka w obliczu podjęcia decyzji.
