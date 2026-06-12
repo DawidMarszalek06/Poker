@@ -1,0 +1,11 @@
+# Ignoruj środowisko wirtualne
+venv/
+.venv/
+ENV/
+
+# Ignoruj pliki konfiguracyjne PyCharma
+.idea/
+
+# Ignoruj pamięć podręczną Pythona
+__pycache__/
+*.pyc
