@@ -24,5 +24,18 @@ class Table:
 
         for player in self.players:
             player.hand.clear()
-
-        # Dalej rozdanie kart graczom itp.
+    def deal_initial_cards(self):
+        #tu rozdajemy po dwie karty graczom
+        for _ in range(2):
+            #rozdajemy kazdemu graczowi
+            for player in self.players:
+                player.receive_card(self.deck.get_card())
+            
+            # Rozdajemy krupierowi 
+            if self.dealer:
+                self.dealer.receive_card(self.deck.get_card())
+                
+        #rozdanie flopa (3kart)
+        for _ in range(3):
+            self.cards_on_the_table.append(self.deck.get_card())
+        
