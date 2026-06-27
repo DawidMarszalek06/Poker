@@ -7,7 +7,7 @@ class HandEvaluator:
         10: "Poker Królewski",
         9: "Poker",
         8: "Kareta",
-        7: "Ful",
+        7: "Full",
         6: "Kolor",
         5: "Strit",
         4: "Trójka",
