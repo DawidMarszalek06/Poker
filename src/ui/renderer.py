@@ -46,14 +46,37 @@ def suit_color(suit: Suit):
 def card_label(card: Card) -> str:
     return f"{RANK_LABELS[card.rank]}{SUIT_SYMBOLS[card.suit]}"
 
-
 def draw_table(surface: pygame.Surface, width: int, height: int):
+    # Klasyczne wypełnienie na zielono
     surface.fill(TABLE_GREEN)
+    
+    # Rysowanie samej elipsy
     table_rect = pygame.Rect(width // 2 - 420, height // 2 - 180, 840, 360)
     pygame.draw.ellipse(surface, TABLE_DARK, table_rect)
     pygame.draw.ellipse(surface, GOLD, table_rect, 4)
 
+BLUE = (40, 80, 200)
 
+# Zmień całą funkcję draw_chips na tę wersję:
+def draw_chips(surface, x, y, chip_colors):
+    if not chip_colors:
+        return
+        
+    for i, color in enumerate(chip_colors):
+            # Dzielenie całkowite (//) dzieki temu wiemy ktory stos modyfikuejmy
+            nr_stosu = i // 10 
+            
+            
+            pozycja_w_stosie = i % 10 
+            
+            
+            cx = x + (nr_stosu * 40)
+            cy = y - (pozycja_w_stosie * 4)
+            
+            # Rysujemy żeton we właściwym miejscu
+            pygame.draw.circle(surface, color, (cx, cy), 18)
+            pygame.draw.circle(surface, WHITE, (cx, cy), 18, 2)
+            pygame.draw.circle(surface, (20, 20, 20), (cx, cy), 10, 1)
 def draw_card(
     surface: pygame.Surface,
     card: Card | None,
