@@ -70,7 +70,7 @@ class Game:
 
     def start_new_hand(self):
         self.table.prepare_new_deal()
-        self.table.deal_initial_cards()
+        #self.table.deal_initial_cards()
         self.phase = "ante"
         self.ante = 0.0
         self.ante_input = ""
@@ -95,6 +95,7 @@ class Game:
 
         self.ante = value
         player.balance = round(player.balance - value, 2)
+        self.table.deal_initial_cards()
         self.phase = "decision"
         self.message = ""
 
