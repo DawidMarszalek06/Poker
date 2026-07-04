@@ -2,7 +2,7 @@ import pygame
 
 from src.hand_evaluator import HandEvaluator
 from src.players import Dealer, Player
-from src.settings import DEFAULT_PLAYER_BALANCE, MIN_ANTE, SCREEN_HEIGHT, SCREEN_WIDTH
+from src.settings import DEFAULT_PLAYER_BALANCE, MIN_ANTE, SCREEN_HEIGHT, SCREEN_WIDTH, ASSETS_DIR
 from src.table import Table
 from src.ui.card_assets import CardSprites
 from src.ui.renderer import (
@@ -33,7 +33,8 @@ class Game:
         self.table = None
         self.phase = "ante"
         self.ante = 0.0
-        self.ante_input = ""
+        self.bonus_bet = 0.0
+        self.current_bet = 0.0
         self.message = ""
         self.reveal_dealer = False
         self.result_lines = []
@@ -42,6 +43,56 @@ class Game:
         self.btn_fold = pygame.Rect(SCREEN_WIDTH // 2 - 220, 750, 200, 45)
         self.btn_play = pygame.Rect(SCREEN_WIDTH // 2 + 20, 750, 200, 45)
         self.btn_next = pygame.Rect(SCREEN_WIDTH // 2 - 100, 750, 200, 45)
+
+        self.btn_chip_1 = pygame.Rect(SCREEN_WIDTH // 2 - 200, 690, 70, 45)
+        self.btn_chip_5 = pygame.Rect(SCREEN_WIDTH // 2 - 120, 690, 70, 45)
+        self.btn_chip_25 = pygame.Rect(SCREEN_WIDTH // 2 - 40, 690, 70, 45)
+        self.btn_chip_100 = pygame.Rect(SCREEN_WIDTH // 2 + 40, 690, 70, 45)
+        self.btn_clear_bet = pygame.Rect(SCREEN_WIDTH // 2 + 120, 690, 80, 45)
+        
+        self.bonus_bet = 0.0
+        self.current_bet = 0.0
+
+        pygame.mixer.init()
+        self.volume = 0.2
+        self.btn_vol_down = pygame.Rect(SCREEN_WIDTH - 140, 15, 35, 35)
+        self.btn_vol_up = pygame.Rect(SCREEN_WIDTH - 35, 15, 35, 35)
+
+        self.deal_sound = None
+        sound_path = ASSETS_DIR / "deal.wav"
+        if sound_path.exists():
+            self.deal_sound = pygame.mixer.Sound(str(sound_path))
+            self.deal_sound.set_volume(self.volume)
+
+        self.chip_sound = None
+        sound_path = ASSETS_DIR /"chip.wav"
+        if sound_path.exists():
+            self.chip_sound = pygame.mixer.Sound(str(sound_path))
+            self.chip_sound.set_volume(self.volume)
+
+        music_path = ASSETS_DIR / "music.mp3"
+        if music_path.exists():
+            pygame.mixer.music.load(str(music_path))
+            pygame.mixer.music.set_volume(self.volume)
+            pygame.mixer.music.play(-1) 
+
+    def change_volume(self, amount):
+        self.volume += amount
+        self.volume = max(0.0, min(1.0, self.volume)) 
+        
+        pygame.mixer.music.set_volume(self.volume)
+        if self.deal_sound:
+            self.deal_sound.set_volume(self.volume)
+        if self.chip_sound:
+            self.chip_sound.set_volume(self.volume)
+
+    def play_deal_sound(self):
+        if self.deal_sound:
+            self.deal_sound.play()
+
+    def play_chip_sound(self):
+        if self.chip_sound:
+            self.chip_sound.play()
 
     def run_nickname_screen(self):
         nickname = ""
@@ -70,41 +121,72 @@ class Game:
 
     def start_new_hand(self):
         self.table.prepare_new_deal()
-        self.table.deal_initial_cards()
         self.phase = "ante"
         self.ante = 0.0
-        self.ante_input = ""
+        self.bonus_bet = 0.0
         self.message = ""
         self.reveal_dealer = False
         self.result_lines = []
 
     def try_post_ante(self):
         player = self.table.players[0]
-        try:
-            value = round(float(self.ante_input.replace(",", ".")), 2)
-        except ValueError:
-            self.message = "Podaj poprawna liczbe!"
-            return
 
-        if value < MIN_ANTE:
+        if self.current_bet < MIN_ANTE:
             self.message = f"Minimalne Ante to {MIN_ANTE:.2f}!"
             return
-        if value * 3 > player.balance:
+        if self.current_bet * 3 > player.balance:
             self.message = f"Za malo srodkow! Max Ante: {player.balance / 3:.2f}"
             return
+        
+        self.ante = self.current_bet
+        player.balance = round(player.balance -self.ante, 2)
+                               
+        self.current_bet = 0.0
+        self.phase = "bonus"
+        self.message = ""
 
-        self.ante = value
-        player.balance = round(player.balance - value, 2)
+    def try_post_bonus(self):
+        player = self.table.players[0]
+        max_bonus = round(player.balance - (self.ante * 2), 2)
+
+        if self.current_bet > max_bonus:
+            self.message = f"Za malo srodkow! Max Bonus: {max_bonus:.2f}"
+            return
+
+        self.bonus_bet = self.current_bet
+        player.balance = round(player.balance - self.bonus_bet, 2)
+        
+        self.current_bet = 0.0
+
+        self.table.deal_initial_cards()
+        self.play_deal_sound()
+
         self.phase = "decision"
         self.message = ""
 
     def do_fold(self):
+        player = self.table.players[0]
         dealer = self.table.dealer
+        #Sprawdzenie bonusu
+        bonus_score = HandEvaluator.evaluate_5_cards(player.hand + self.table.cards_on_the_table)
+        bonus_multiplier = HandEvaluator.get_bonus_multiplier(bonus_score)
+        bonus_msg = ""
 
-        self.message = f"Spasowales. Tracisz Ante ({self.ante:.2f})."
+        if self.bonus_bet > 0:
+            if bonus_multiplier > 0:
+                bonus_win = round(self.bonus_bet * (bonus_multiplier + 1), 2)
+                player.balance = round(player.balance + bonus_win, 2)
+                bonus_msg = f" (Bonus wygrany! +{bonus_win:.2f})"
+            else:
+                bonus_msg = f" (Bonus przegrany: -{self.bonus_bet:.2f})"
+
+        self.message = f"Spasowales. Tracisz Ante ({self.ante:.2f})." + bonus_msg
+        self.reveal_dealer = True
         self.reveal_dealer = True
         for _ in range(2):
             self.table.cards_on_the_table.append(self.table.deck.get_card())
+        self.play_deal_sound()
+
         self.result_lines = [
             "Fold - przegrana",
             "Karty krupiera: " + ", ".join(card_label(c) for c in dealer.hand),
@@ -117,10 +199,23 @@ class Game:
         call_cost = self.ante * 2
         player.balance = round(player.balance - call_cost, 2)
 
+        bonus_score = HandEvaluator.evaluate_5_cards(player.hand + self.table.cards_on_the_table)
+        bonus_multiplier = HandEvaluator.get_bonus_multiplier(bonus_score)
+        bonus_msg = ""
+
+        if self.bonus_bet > 0:
+            if bonus_multiplier > 0:
+                bonus_win = round(self.bonus_bet * (bonus_multiplier + 1), 2)
+                player.balance = round(player.balance + bonus_win, 2)
+                bonus_msg = f", Bonus: +{bonus_win:.2f}"
+            else:
+                bonus_msg = f", Bonus: -{self.bonus_bet:.2f}"
+
         for _ in range(2):
             self.table.cards_on_the_table.append(self.table.deck.get_card())
-
+        self.play_deal_sound()
         self.reveal_dealer = True
+                                         
         my_score, _ = HandEvaluator.evaluate_7_cards(player.hand + self.table.cards_on_the_table)
         dealer_score, _ = HandEvaluator.evaluate_7_cards(dealer.hand + self.table.cards_on_the_table)
         my_hand = HandEvaluator.get_hand_string(my_score)
@@ -129,15 +224,20 @@ class Game:
         if my_score > dealer_score:
             win = round((self.ante + call_cost) * 2, 2)
             player.balance = round(player.balance + win, 2)
-            self.message = f"WYGRANA! +{win:.2f}"
+            self.message = f"WYGRANA! +{win:.2f}{bonus_msg}"
         elif my_score < dealer_score:
-            self.message = "Przegrana - lepszy uklad krupiera"
+            self.message = f"Przegrana - lepszy uklad krupiera{bonus_msg}"
         else:
             refund = round(self.ante + call_cost, 2)
             player.balance = round(player.balance + refund, 2)
-            self.message = f"Remis - zwrot {refund:.2f}"
+            self.message = f"Remis - zwrot {refund:.2f}{bonus_msg}"
 
         self.result_lines = [f"Twoj uklad: {my_hand}", f"Uklad krupiera: {dealer_hand}"]
+
+        if self.bonus_bet > 0 and bonus_multiplier > 0:
+            bonus_hand_name = HandEvaluator.get_hand_string(bonus_score)
+            self.result_lines.append(f"Trafiony Bonus: {bonus_hand_name} ({bonus_multiplier}:1)")
+
         self.phase = "result"
 
     def render_game(self):
@@ -166,7 +266,12 @@ class Game:
         draw_card_row(
             self.display, player.hand, SCREEN_WIDTH // 2, 560,
             face_up=True, card_sprites=self.card_sprites,
+
         )
+        draw_text(self.display, "-", self.btn_vol_down.centerx, self.btn_vol_down.centery, self.font, GOLD, center=True)
+        draw_text(self.display, f"{int(self.volume * 100)}%", SCREEN_WIDTH - 80, self.btn_vol_down.centery, self.font_small, WHITE, center=True)
+        draw_text(self.display, "+", self.btn_vol_up.centerx, self.btn_vol_up.centery, self.font, GOLD, center=True)
+        
 
         if self.message and self.phase in ("ante", "game_over"):
             color = GOLD if "WYGRANA" in self.message else WHITE
@@ -196,22 +301,45 @@ class Game:
                 draw_text(self.display, line, SCREEN_WIDTH // 2, y, self.font_small, GRAY, center=True)
                 y += 26
 
-        if self.phase == "ante":
-            draw_text(
-                self.display,
-                f"Ante min {MIN_ANTE:.0f}, max {player.balance / 3:.2f}: {self.ante_input}|",
-                SCREEN_WIDTH // 2,
-                690,
-                self.font_small,
-                center=True,
-            )
-            draw_button(self.display, self.btn_post_ante, "Postaw Ante", self.font_small)
+        if self.phase in ("ante", "bonus"):
+    
+            draw_button(self.display, self.btn_chip_1, "+1", self.font_small)
+            draw_button(self.display, self.btn_chip_5, "+5", self.font_small)
+            draw_button(self.display, self.btn_chip_25, "+25", self.font_small)
+            draw_button(self.display, self.btn_chip_100, "+100", self.font_small)
+            draw_button(self.display, self.btn_clear_bet, "Cofnij", self.font_small)
+
+            if self.phase == "ante":
+                draw_text(
+                    self.display,
+                    f"Wybrane Ante (min {MIN_ANTE:.0f}, max {player.balance / 3:.2f}): {self.current_bet:.2f}",
+                    SCREEN_WIDTH // 2,
+                    650,
+                    self.font_small,
+                    center=True,
+                )
+                draw_button(self.display, self.btn_post_ante, "Zatwierdz Ante", self.font_small)
+            
+            elif self.phase == "bonus":
+                max_bonus = round(player.balance - (self.ante * 2), 2)
+                draw_text(
+                    self.display,
+                    f"Wybrany Bonus AA (max {max_bonus:.2f}): {self.current_bet:.2f}",
+                    SCREEN_WIDTH // 2,
+                    650,
+                    self.font_small,
+                    center=True,
+                )
+                draw_button(self.display, self.btn_post_ante, "Zatwierdz Bonus", self.font_small)
+
         elif self.phase == "decision":
             draw_button(self.display, self.btn_fold, "Fold", self.font_small)
             draw_button(self.display, self.btn_play, f"Graj ({self.ante * 2:.2f})", self.font_small)
+            
         elif self.phase == "result":
             label = "Koniec" if player.balance <= 0 else "Kolejne rozdanie"
             draw_button(self.display, self.btn_next, label, self.font_small)
+            
         elif self.phase == "game_over":
             draw_text(self.display, "Koniec gry - zamknij okno", SCREEN_WIDTH // 2, 750, self.font_small, center=True)
 
@@ -232,33 +360,49 @@ class Game:
                 if event.type == pygame.QUIT:
                     running = False
 
-                elif event.type == pygame.KEYDOWN and self.phase == "ante":
-                    if event.key == pygame.K_RETURN:
-                        self.try_post_ante()
-                    elif event.key == pygame.K_BACKSPACE:
-                        self.ante_input = self.ante_input[:-1]
-                    elif event.unicode.isprintable() and len(self.ante_input) < 8:
-                        if event.unicode.isdigit():
-                            text = self.ante_input.replace(",", ".")
-                            if "." in text and len(text.split(".")[1]) >= 2:
-                                continue
-                            self.ante_input += event.unicode
-                        elif event.unicode in ".," and self.ante_input and "." not in self.ante_input and "," not in self.ante_input:
-                            self.ante_input += "."
-
                 elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
-                    if self.phase == "ante" and self.btn_post_ante.collidepoint(event.pos):
-                        self.try_post_ante()
-                    elif self.phase == "decision" and self.btn_fold.collidepoint(event.pos):
-                        self.do_fold()
-                    elif self.phase == "decision" and self.btn_play.collidepoint(event.pos):
-                        self.do_play()
-                    elif self.phase == "result" and self.btn_next.collidepoint(event.pos):
-                        if player.balance <= 0:
-                            self.phase = "game_over"
-                            self.message = "Brak srodkow. Koniec gry."
-                        else:
-                            self.start_new_hand()
+
+                    if self.btn_vol_down.collidepoint(event.pos):
+                        self.change_volume(-0.1)
+                    elif self.btn_vol_up.collidepoint(event.pos):
+                        self.change_volume(0.1)
+                    
+                    elif self.phase in ("ante", "bonus"):
+                        if self.btn_chip_1.collidepoint(event.pos):
+                            self.current_bet += 1.0
+                            self.play_chip_sound()
+                        elif self.btn_chip_5.collidepoint(event.pos):
+                            self.current_bet += 5.0
+                            self.play_chip_sound()
+                        elif self.btn_chip_25.collidepoint(event.pos):
+                            self.current_bet += 25.0
+                            self.play_chip_sound()
+                        elif self.btn_chip_100.collidepoint(event.pos):
+                            self.current_bet += 100.0
+                            self.play_chip_sound()
+                        elif self.btn_clear_bet.collidepoint(event.pos):
+                            self.current_bet = 0.0
+                            self.play_chip_sound()
+                            
+                        elif self.btn_post_ante.collidepoint(event.pos):
+                            if self.phase == "ante":
+                                self.try_post_ante()
+                            elif self.phase == "bonus":
+                                self.try_post_bonus()
+
+                    elif self.phase == "decision":
+                        if self.btn_fold.collidepoint(event.pos):
+                            self.do_fold()
+                        elif self.btn_play.collidepoint(event.pos):
+                            self.do_play()
+                            
+                    elif self.phase == "result":
+                        if self.btn_next.collidepoint(event.pos):
+                            if player.balance <= 0:
+                                self.phase = "game_over"
+                                self.message = "Brak srodkow. Koniec gry."
+                            else:
+                                self.start_new_hand()
 
             self.render_game()
             pygame.display.flip()

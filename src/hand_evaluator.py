@@ -23,6 +23,16 @@ class HandEvaluator:
         11: "J"
     }
 
+    BONUS_PAYOUTS = {
+        10: 100,
+        9: 50,
+        8: 40,
+        7: 30,
+        6: 20,
+        5: 7,
+        4: 7,
+        3: 7,
+    }
 
     @staticmethod
     def evaluate_7_cards(cards): #Sprawdzamy wszystkie kombinacje złożone z 7 kart(2 gracza + 5 wspólnych)
@@ -128,3 +138,17 @@ class HandEvaluator:
             
         else: 
             return f"{base_name} {to_symbol(kickers[0])}"
+        
+    @staticmethod
+    def get_bonus_multiplier(score):
+        hand_type = score[0]
+        kickers = score[1]
+
+        if hand_type in HandEvaluator.BONUS_PAYOUTS:
+            return HandEvaluator.BONUS_PAYOUTS[hand_type]
+
+        if hand_type == 2:
+            if kickers[0] == 14:
+                return 7
+        return 0
+   
