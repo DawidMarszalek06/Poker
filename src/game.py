@@ -30,9 +30,9 @@ class Game:
         self.display = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
         pygame.display.set_caption("Poker - Casino Hold'em")
         self.clock = pygame.time.Clock()
-        self.font = pygame.font.SysFont(None, 48)
-        self.font_small = pygame.font.SysFont(None, 32)
-        self.font_card = pygame.font.SysFont(None, 36)
+        self.font = pygame.font.SysFont("cambria", 40)
+        self.font_small = pygame.font.SysFont("cambria", 24)
+        self.font_card = pygame.font.SysFont("segoeuisymbol", 28)
         self.card_sprites = CardSprites()
 
         self.table = None
@@ -45,9 +45,9 @@ class Game:
         self.result_lines = []
 
         self.btn_post_ante = pygame.Rect(SCREEN_WIDTH // 2 - 100, 750, 200, 45)
-        self.btn_fold = pygame.Rect(SCREEN_WIDTH // 2 - 220, 750, 200, 45)
-        self.btn_play = pygame.Rect(SCREEN_WIDTH // 2 + 20, 750, 200, 45)
-        self.btn_next = pygame.Rect(SCREEN_WIDTH // 2 - 100, 750, 200, 45)
+        self.btn_fold = pygame.Rect(SCREEN_WIDTH // 2 - 220, 755, 200, 40)
+        self.btn_play = pygame.Rect(SCREEN_WIDTH // 2 + 20, 755, 200, 40)
+        self.btn_next = pygame.Rect(SCREEN_WIDTH // 2 - 140, 755, 280, 40)
        
         self.chips_base_x = SCREEN_WIDTH // 2 - 250
         self.chips_base_y = 580
@@ -86,6 +86,12 @@ class Game:
             self.chip_sound = pygame.mixer.Sound(str(sound_path))
             self.chip_sound.set_volume(self.volume)
 
+        self.win_sound = None
+        win_path = ASSETS_DIR / "win.wav"
+        if win_path.exists():
+            self.win_sound = pygame.mixer.Sound(str(win_path))
+            self.win_sound.set_volume(self.volume)
+
         music_path = ASSETS_DIR / "music.mp3"
         if music_path.exists():
             pygame.mixer.music.load(str(music_path))
@@ -96,11 +102,13 @@ class Game:
         self.volume += amount
         self.volume = max(0.0, min(1.0, self.volume)) 
         
-        pygame.mixer.music.set_volume(self.volume)
+        pygame.mixer.music.set_volume(self.volume*0.3)
         if self.deal_sound:
             self.deal_sound.set_volume(self.volume)
         if self.chip_sound:
             self.chip_sound.set_volume(self.volume)
+        if self.win_sound:
+            self.win_sound.set_volume(self.volume)
 
     def play_deal_sound(self):
         if self.deal_sound:
@@ -109,6 +117,10 @@ class Game:
     def play_chip_sound(self):
         if self.chip_sound:
             self.chip_sound.play()
+
+    def play_win_sound(self):
+        if hasattr(self, 'win_sound') and self.win_sound:
+            self.win_sound.play()
 
     def run_nickname_screen(self):
         nickname = ""
@@ -212,6 +224,14 @@ class Game:
             "Fold - przegrana",
             "Karty krupiera: " + ", ".join(card_label(c) for c in dealer.hand),
         ]
+
+        if self.bonus_bet > 0:
+            if bonus_multiplier > 0:
+                bonus_win = round(self.bonus_bet * (bonus_multiplier + 1), 2)
+                bonus_hand_name = HandEvaluator.get_hand_string(bonus_score)
+                self.result_lines.append(f"WYGRANY BONUS: {bonus_hand_name} (+{bonus_win:.2f})")
+            else:
+                self.result_lines.append(f"Bonus przegrany (-{self.bonus_bet:.2f})")
         self.phase = "result"
 
     def do_play(self):
@@ -222,7 +242,6 @@ class Game:
 
         bonus_score = HandEvaluator.evaluate_5_cards(player.hand + self.table.cards_on_the_table)
         bonus_multiplier = HandEvaluator.get_bonus_multiplier(bonus_score)
-        bonus_msg = ""
 
         if self.bonus_bet > 0:
             if bonus_multiplier > 0:
@@ -245,19 +264,20 @@ class Game:
         if my_score > dealer_score:
             win = round((self.ante + call_cost) * 2, 2)
             player.balance = round(player.balance + win, 2)
-            self.message = f"WYGRANA! +{win:.2f}{bonus_msg}"
+            self.message = f"WYGRANA! +{win:.2f}"
+            self.play_win_sound()
         elif my_score < dealer_score:
-            self.message = f"Przegrana - lepszy uklad krupiera{bonus_msg}"
+            self.message = f"Przegrana - lepszy uklad krupiera"
         else:
             refund = round(self.ante + call_cost, 2)
             player.balance = round(player.balance + refund, 2)
-            self.message = f"Remis - zwrot {refund:.2f}{bonus_msg}"
+            self.message = f"Remis - zwrot {refund:.2f}"
 
         self.result_lines = [f"Twoj uklad: {my_hand}", f"Uklad krupiera: {dealer_hand}"]
 
         if self.bonus_bet > 0 and bonus_multiplier > 0:
             bonus_hand_name = HandEvaluator.get_hand_string(bonus_score)
-            self.result_lines.append(f"Trafiony Bonus: {bonus_hand_name} ({bonus_multiplier}:1)")
+            self.result_lines.append(f"WYGRANY BONUS: {bonus_hand_name} (+{bonus_win:.2f})")
 
         self.phase = "result"
 
@@ -290,15 +310,17 @@ class Game:
             pot_chips = self.get_chips(self.ante)
             draw_chips(self.display, SCREEN_WIDTH // 2 - 20, 480, pot_chips)
         # Tekst z saldem gracza
-        draw_text(self.display, f"{player.nickname}  |  Saldo: {player.balance:.2f}", SCREEN_WIDTH // 2, 520, self.font_small, center=True)
-        draw_text(self.display, f"{player.nickname}  |  Saldo: {player.balance:.2f}", SCREEN_WIDTH // 2, 520, self.font_small, center=True)
+        draw_text(self.display, f"{player.nickname}  |  Saldo: {player.balance:.2f}", SCREEN_WIDTH // 2, 505, self.font_small, center=True)
+        draw_text(self.display, f"{player.nickname}  |  Saldo: {player.balance:.2f}", SCREEN_WIDTH // 2, 505, self.font_small, center=True)
         draw_card_row(
-            self.display, player.hand, SCREEN_WIDTH // 2, 560,
+            self.display, player.hand, SCREEN_WIDTH // 2, 545,
             face_up=True, card_sprites=self.card_sprites,
 
         )
+        draw_text(self.display, "Vol", self.btn_vol_down.centerx - 45, self.btn_vol_down.centery, self.font_small, GOLD, center=True)
         draw_text(self.display, "-", self.btn_vol_down.centerx, self.btn_vol_down.centery, self.font, GOLD, center=True)
-        draw_text(self.display, f"{int(self.volume * 100)}%", SCREEN_WIDTH - 80, self.btn_vol_down.centery, self.font_small, WHITE, center=True)
+        mid_x = (self.btn_vol_down.centerx + self.btn_vol_up.centerx) // 2
+        draw_text(self.display, f"{int(self.volume * 100)}%",  mid_x, self.btn_vol_down.centery, self.font_small, WHITE, center=True)
         draw_text(self.display, "+", self.btn_vol_up.centerx, self.btn_vol_up.centery, self.font, GOLD, center=True)
         
 
@@ -317,18 +339,21 @@ class Game:
                 self.font_small,
                 center=True,
             )
+        elif self.phase == "decision":
+            draw_button(self.display, self.btn_fold, "Fold (F)", self.font_small)
+            draw_button(self.display, self.btn_play, f"Graj (G) - {self.ante * 2:.2f}", self.font_small)
 
         if self.phase == "result":
-            y = 678
+            y = 660
             if self.message:
                 color = GOLD if "WYGRANA" in self.message else WHITE
                 if "Przegrana" in self.message or "Spasowales" in self.message:
                     color = RED
                 draw_text(self.display, self.message, SCREEN_WIDTH // 2, y, self.font_small, color, center=True)
-                y += 30
+                y += 26
             for line in self.result_lines:
                 draw_text(self.display, line, SCREEN_WIDTH // 2, y, self.font_small, GRAY, center=True)
-                y += 26
+                y += 24
 
         if self.phase in ("ante", "bonus"):
     
@@ -341,7 +366,7 @@ class Game:
             if self.phase == "ante":
                 draw_text(
                     self.display,
-                    f"Wybrane Ante (min {MIN_ANTE:.0f}, max {player.balance / 3:.2f}): {self.current_bet:.2f}",
+                    f"Wybrane Ante (min {MIN_ANTE:.0f}, max {int(player.balance / 3)}): {self.current_bet:.2f}",
                     SCREEN_WIDTH // 2,
                     650,
                     self.font_small,
@@ -370,7 +395,37 @@ class Game:
             draw_button(self.display, self.btn_next, label, self.font_small)
             
         elif self.phase == "game_over":
-            draw_text(self.display, "Koniec gry - zamknij okno", SCREEN_WIDTH // 2, 750, self.font_small, center=True)
+            draw_text(self.display, "Brak srodkow. Koniec gry.", SCREEN_WIDTH // 2, 685, self.font_small, RED, center=True)
+            draw_text(self.display, "Nowa Gra (G) | Zamknij okno (Esc)", SCREEN_WIDTH // 2, 720, self.font_small, WHITE, center=True)
+
+        #Tabela wypłat
+        table_w = 320
+        table_h = 190
+        table_x = 20 
+        table_y = 20 
+
+        pygame.draw.rect(self.display, (20, 50, 20), (table_x, table_y, table_w, table_h), border_radius=8)
+        pygame.draw.rect(self.display, GOLD, (table_x, table_y, table_w, table_h), 2, border_radius=8)
+
+        draw_text(self.display, "Wypłaty Bonus AA", table_x + table_w // 2, table_y + 20, self.font_small, GOLD, center=True)
+
+        payouts = [
+            ("Poker Królewski", "100:1"),
+            ("Poker", "50:1"),
+            ("Kareta", "40:1"),
+            ("Full", "30:1"),
+            ("Kolor", "20:1"),
+            ("Para Asów lub Wyżej", "7:1")
+        ]
+
+        row_y = table_y + 55
+        for name, multiplier in payouts:
+            
+            draw_text(self.display, name, table_x + 130, row_y, self.font_small, WHITE, center=True)
+
+            draw_text(self.display, multiplier, table_x + table_w - 40, row_y, self.font_small, GOLD, center=True)
+            row_y += 24
+
 
     def run(self):
         nickname = self.run_nickname_screen()
@@ -388,6 +443,24 @@ class Game:
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     running = False
+                elif event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_ESCAPE:
+                        running = False
+                    elif event.key == pygame.K_g:
+                        if self.phase == "decision":
+                            self.do_play()  
+                        elif self.phase == "result":
+                            if player.balance <= 0:
+                                self.phase = "game_over"
+                                self.message = ""
+                            else:
+                                self.start_new_hand()  
+                        elif self.phase == "game_over":
+                            player.balance = DEFAULT_PLAYER_BALANCE
+                            self.start_new_hand()
+                    
+                    elif event.key == pygame.K_f and self.phase == "decision":
+                        self.do_fold()
 
                 elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
 
@@ -432,18 +505,7 @@ class Game:
                                 self.message = "Brak srodkow. Koniec gry."
                             else:
                                 self.start_new_hand()
-                    if self.phase == "ante" and self.btn_post_ante.collidepoint(event.pos):
-                        self.try_post_ante()
-                    elif self.phase == "decision" and self.btn_fold.collidepoint(event.pos):
-                        self.do_fold()
-                    elif self.phase == "decision" and self.btn_play.collidepoint(event.pos):
-                        self.do_play()
-                    elif self.phase == "result" and self.btn_next.collidepoint(event.pos):
-                        if player.balance <= 0:
-                            self.phase = "game_over"
-                            self.message = "Brak srodkow. Koniec gry."
-                        else:
-                            self.start_new_hand()
+                   
                     chips_hitbox = pygame.Rect(self.chips_x - 30, self.chips_y - 80, 100, 100)
                     if chips_hitbox.collidepoint(event.pos):
                         self.dragging_chips = True

@@ -19,7 +19,7 @@ class HandEvaluator:
     CARD_SYMBOLS = {
         14: "A",
         13: "K",
-        12: "D", 
+        12: "Q", 
         11: "J"
     }
 
