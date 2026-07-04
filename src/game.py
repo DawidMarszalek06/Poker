@@ -1,5 +1,8 @@
-import pygame
+import random
 
+import pygame
+import os
+from src.settings import ASSETS_DIR
 from src.hand_evaluator import HandEvaluator
 from src.players import Dealer, Player
 from src.settings import DEFAULT_PLAYER_BALANCE, MIN_ANTE, SCREEN_HEIGHT, SCREEN_WIDTH, ASSETS_DIR
@@ -9,6 +12,7 @@ from src.ui.renderer import (
     GRAY,
     GOLD,
     RED,
+    BLUE,
     WHITE,
     card_label,
     draw_button,
@@ -16,6 +20,7 @@ from src.ui.renderer import (
     draw_deck,
     draw_table,
     draw_text,
+    draw_chips,
 )
 
 
@@ -43,7 +48,18 @@ class Game:
         self.btn_fold = pygame.Rect(SCREEN_WIDTH // 2 - 220, 750, 200, 45)
         self.btn_play = pygame.Rect(SCREEN_WIDTH // 2 + 20, 750, 200, 45)
         self.btn_next = pygame.Rect(SCREEN_WIDTH // 2 - 100, 750, 200, 45)
-
+       
+        self.chips_base_x = SCREEN_WIDTH // 2 - 250
+        self.chips_base_y = 580
+        
+        # Aktualna pozycja żetonów (na starcie taka sama jak bazowa)
+        self.chips_x = self.chips_base_x
+        self.chips_y = self.chips_base_y
+        
+        #zxmienne do rozciagania
+        self.dragging_chips = False
+        self.drag_offset_x = 0
+        self.drag_offset_y = 0
         self.btn_chip_1 = pygame.Rect(SCREEN_WIDTH // 2 - 200, 690, 70, 45)
         self.btn_chip_5 = pygame.Rect(SCREEN_WIDTH // 2 - 120, 690, 70, 45)
         self.btn_chip_25 = pygame.Rect(SCREEN_WIDTH // 2 - 40, 690, 70, 45)
@@ -121,6 +137,7 @@ class Game:
 
     def start_new_hand(self):
         self.table.prepare_new_deal()
+        #self.table.deal_initial_cards()
         self.phase = "ante"
         self.ante = 0.0
         self.bonus_bet = 0.0
@@ -128,6 +145,10 @@ class Game:
         self.reveal_dealer = False
         self.result_lines = []
 
+    def get_chips(self, amount):
+        liczba_zetonow = int(amount // 10)
+        return [BLUE] * liczba_zetonow
+    
     def try_post_ante(self):
         player = self.table.players[0]
 
@@ -244,7 +265,7 @@ class Game:
         player = self.table.players[0]
         dealer = self.table.dealer
 
-        draw_table(self.display, SCREEN_WIDTH, SCREEN_HEIGHT)
+        draw_table(self.display, SCREEN_WIDTH, SCREEN_HEIGHT,)
 
         draw_text(self.display, "Krupier", SCREEN_WIDTH // 2, 50, self.font_small, center=True)
         draw_card_row(
@@ -261,7 +282,15 @@ class Game:
         deck_x = SCREEN_WIDTH // 2 + 360
         deck_y = SCREEN_HEIGHT // 2 - CardSprites.DECK_H // 2
         draw_deck(self.display, deck_x, deck_y, self.card_sprites)
-
+        
+            
+        player_chips = self.get_chips(player.balance)
+        draw_chips(self.display, self.chips_x, self.chips_y, player_chips)
+        if self.ante > 0:
+            pot_chips = self.get_chips(self.ante)
+            draw_chips(self.display, SCREEN_WIDTH // 2 - 20, 480, pot_chips)
+        # Tekst z saldem gracza
+        draw_text(self.display, f"{player.nickname}  |  Saldo: {player.balance:.2f}", SCREEN_WIDTH // 2, 520, self.font_small, center=True)
         draw_text(self.display, f"{player.nickname}  |  Saldo: {player.balance:.2f}", SCREEN_WIDTH // 2, 520, self.font_small, center=True)
         draw_card_row(
             self.display, player.hand, SCREEN_WIDTH // 2, 560,
@@ -337,7 +366,7 @@ class Game:
             draw_button(self.display, self.btn_play, f"Graj ({self.ante * 2:.2f})", self.font_small)
             
         elif self.phase == "result":
-            label = "Koniec" if player.balance <= 0 else "Kolejne rozdanie"
+            label = "Koniec" if player.balance <= 0 else "Kolejne rozdanie (G)"
             draw_button(self.display, self.btn_next, label, self.font_small)
             
         elif self.phase == "game_over":
@@ -403,6 +432,37 @@ class Game:
                                 self.message = "Brak srodkow. Koniec gry."
                             else:
                                 self.start_new_hand()
+                    if self.phase == "ante" and self.btn_post_ante.collidepoint(event.pos):
+                        self.try_post_ante()
+                    elif self.phase == "decision" and self.btn_fold.collidepoint(event.pos):
+                        self.do_fold()
+                    elif self.phase == "decision" and self.btn_play.collidepoint(event.pos):
+                        self.do_play()
+                    elif self.phase == "result" and self.btn_next.collidepoint(event.pos):
+                        if player.balance <= 0:
+                            self.phase = "game_over"
+                            self.message = "Brak srodkow. Koniec gry."
+                        else:
+                            self.start_new_hand()
+                    chips_hitbox = pygame.Rect(self.chips_x - 30, self.chips_y - 80, 100, 100)
+                    if chips_hitbox.collidepoint(event.pos):
+                        self.dragging_chips = True
+                        self.drag_offset_x = self.chips_x - event.pos[0]
+                        self.drag_offset_y = self.chips_y - event.pos[1]
+
+                # Puszczanie żetonów
+                elif event.type == pygame.MOUSEBUTTONUP and event.button == 1:
+                    self.dragging_chips = False
+
+                # Przeciąganie żetonów po ekranie z limitem odległości
+                elif event.type == pygame.MOUSEMOTION:
+                    if getattr(self, 'dragging_chips', False):
+                        target_x = event.pos[0] + self.drag_offset_x
+                        target_y = event.pos[1] + self.drag_offset_y
+                        
+                        limit = 60
+                        self.chips_x = max(self.chips_base_x - limit, min(self.chips_base_x + limit, target_x))
+                        self.chips_y = max(self.chips_base_y - limit, min(self.chips_base_y + limit, target_y))
 
             self.render_game()
             pygame.display.flip()
