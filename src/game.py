@@ -3,6 +3,7 @@ import random
 import pygame
 import os
 from src.settings import ASSETS_DIR
+import math
 from src.hand_evaluator import HandEvaluator
 from src.players import Dealer, Player
 from src.settings import DEFAULT_PLAYER_BALANCE, MIN_ANTE, SCREEN_HEIGHT, SCREEN_WIDTH, ASSETS_DIR
@@ -100,7 +101,9 @@ class Game:
 
     def change_volume(self, amount):
         self.volume += amount
-        self.volume = max(0.0, min(1.0, self.volume)) 
+
+        self.volume = max(0.0, min(1.0, self.volume))
+        self.volume = round(self.volume, 1)
         
         pygame.mixer.music.set_volume(self.volume*0.3)
         if self.deal_sound:
@@ -287,7 +290,7 @@ class Game:
 
         draw_table(self.display, SCREEN_WIDTH, SCREEN_HEIGHT,)
 
-        draw_text(self.display, "Krupier", SCREEN_WIDTH // 2, 50, self.font_small, center=True)
+        draw_text(self.display, "Krupier", SCREEN_WIDTH // 2, 50, self.font, center=True)
         draw_card_row(
             self.display, dealer.hand, SCREEN_WIDTH // 2, 90,
             face_up=self.reveal_dealer, card_sprites=self.card_sprites,
@@ -308,9 +311,8 @@ class Game:
         draw_chips(self.display, self.chips_x, self.chips_y, player_chips)
         if self.ante > 0:
             pot_chips = self.get_chips(self.ante)
-            draw_chips(self.display, SCREEN_WIDTH // 2 - 20, 480, pot_chips)
+            draw_chips(self.display, SCREEN_WIDTH // 2 - 20, 470, pot_chips)
         # Tekst z saldem gracza
-        draw_text(self.display, f"{player.nickname}  |  Saldo: {player.balance:.2f}", SCREEN_WIDTH // 2, 505, self.font_small, center=True)
         draw_text(self.display, f"{player.nickname}  |  Saldo: {player.balance:.2f}", SCREEN_WIDTH // 2, 505, self.font_small, center=True)
         draw_card_row(
             self.display, player.hand, SCREEN_WIDTH // 2, 545,
@@ -368,7 +370,7 @@ class Game:
                     self.display,
                     f"Wybrane Ante (min {MIN_ANTE:.0f}, max {int(player.balance / 3)}): {self.current_bet:.2f}",
                     SCREEN_WIDTH // 2,
-                    650,
+                    640,
                     self.font_small,
                     center=True,
                 )
@@ -380,7 +382,7 @@ class Game:
                     self.display,
                     f"Wybrany Bonus AA (max {max_bonus:.2f}): {self.current_bet:.2f}",
                     SCREEN_WIDTH // 2,
-                    650,
+                    640,
                     self.font_small,
                     center=True,
                 )
