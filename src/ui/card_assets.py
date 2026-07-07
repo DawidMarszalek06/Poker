@@ -3,9 +3,10 @@ import pygame
 from src.cards import Card, Rank, Suit
 from src.settings import ASSETS_DIR, CARD_HEIGHT, CARD_WIDTH
 
+# jedna karta na sprite sheetcie ma 88x124 px
 SPRITE_W = 88
 SPRITE_H = 124
-COLS = 5
+COLS = 5  # uklad kart na arkuszu: 5 kolumn (A-5, 6-10, J-Q-K)
 
 SUIT_FILES = {
     Suit.HEARTS: "Hearts-88x124.png",
@@ -16,6 +17,7 @@ SUIT_FILES = {
 
 
 def rank_to_index(rank: Rank) -> int:
+    # kolejnosc na arkuszu: A, 2, 3 ... K (nie po rank.value)
     if rank == Rank.ACE:
         return 0
     return rank.value - 1
@@ -29,6 +31,7 @@ def _is_background(r: int, g: int, b: int, key: tuple[int, int, int], tolerance:
 
 
 def _remove_background(sprite: pygame.Surface, tolerance: int = 45) -> pygame.Surface:
+    # usuwa tealowe tlo z zaokraglonych rogow kart
     key = sprite.get_at((0, 0))[:3]
     w, h = sprite.get_size()
     clean = pygame.Surface((w, h), pygame.SRCALPHA)
@@ -55,6 +58,8 @@ def _cut_sprite(sheet: pygame.Surface, rect: pygame.Rect, width: int, height: in
 
 
 class CardSprites:
+    """Laduje grafiki kart z assets/Cards i trzyma je w pamieci."""
+
     DECK_W = 55
     DECK_H = 88
 
@@ -62,6 +67,7 @@ class CardSprites:
         self.sprites: dict[tuple[Suit, Rank], pygame.Surface] = {}
         cards_dir = ASSETS_DIR / "Cards"
 
+        # wycinanie pojedynczych kart z arkuszy po kolorach
         for suit, filename in SUIT_FILES.items():
             sheet = _load_sheet(str(cards_dir / filename))
             for rank in Rank:
@@ -72,11 +78,11 @@ class CardSprites:
                 self.sprites[(suit, rank)] = _cut_sprite(sheet, rect, CARD_WIDTH, CARD_HEIGHT)
 
         back_sheet = _load_sheet(str(cards_dir / "Card_Back-88x124.png"))
-        back_rect = pygame.Rect(0, 0, SPRITE_W, SPRITE_H)
+        back_rect = pygame.Rect(0, 0, SPRITE_W, SPRITE_H)  # czerwony rewers
         self.card_back = _cut_sprite(back_sheet, back_rect, CARD_WIDTH, CARD_HEIGHT)
 
         deck_sheet = _load_sheet(str(cards_dir / "Card_DeckA-88x140.png"))
-        deck_rect = pygame.Rect(88, 0, 88, 140)  # czerwony jak rewers kart krupiera
+        deck_rect = pygame.Rect(88, 0, 88, 140)  # czerwona talia obok stolu
         self.deck = _cut_sprite(deck_sheet, deck_rect, self.DECK_W, self.DECK_H)
 
     def get(self, card: Card) -> pygame.Surface:

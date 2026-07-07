@@ -1,5 +1,7 @@
 import pygame
 
+# Proste funkcje rysujace stol, karty i przyciski (Pygame UI)
+
 from src.cards import Card, Rank, Suit
 from src.settings import CARD_HEIGHT, CARD_WIDTH
 from src.ui.card_assets import CardSprites
@@ -44,12 +46,13 @@ def suit_color(suit: Suit):
 
 
 def card_label(card: Card) -> str:
+    """Krotka nazwa karty do tekstu, np. A♠"""
     return f"{RANK_LABELS[card.rank]}{SUIT_SYMBOLS[card.suit]}"
 
+
 def draw_table(surface: pygame.Surface, width: int, height: int):
-    # Klasyczne wypełnienie na zielono
+    # zielone tlo + elipsa stolu (prototyp, pozniej mozna podmienic grafika)
     surface.fill(TABLE_GREEN)
-    
     # Rysowanie samej elipsy
     table_rect = pygame.Rect(width // 2 - 420, height // 2 - 180, 840, 360)
     pygame.draw.ellipse(surface, TABLE_DARK, table_rect)
@@ -88,6 +91,7 @@ def draw_card(
 ):
     rect = pygame.Rect(x, y, CARD_WIDTH, CARD_HEIGHT)
 
+    # grafiki z assets (jesli zaladowane)
     if card_sprites is not None:
         if not face_up or card is None:
             surface.blit(card_sprites.get_back(), rect.topleft)
@@ -95,6 +99,7 @@ def draw_card(
             surface.blit(card_sprites.get(card), rect.topleft)
         return rect
 
+    # fallback - proste prostokaty gdyby nie bylo grafik
     if not face_up or card is None:
         pygame.draw.rect(surface, CARD_BACK, rect, border_radius=6)
         pygame.draw.rect(surface, WHITE, rect, 2, border_radius=6)
@@ -124,6 +129,7 @@ def draw_card_row(
     gap: int = 12,
     card_sprites: CardSprites | None = None,
 ):
+    """Rysuje rzad kart wycentrowany w poziomie."""
     if not cards:
         return
     total_width = len(cards) * CARD_WIDTH + (len(cards) - 1) * gap
@@ -138,6 +144,7 @@ def draw_card_row(
 
 
 def draw_deck(surface: pygame.Surface, x: int, y: int, card_sprites: CardSprites):
+    # talia kart na stole
     surface.blit(card_sprites.get_deck(), (x, y))
 
 

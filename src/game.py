@@ -34,17 +34,19 @@ class Game:
         self.font = pygame.font.SysFont("cambria", 40)
         self.font_small = pygame.font.SysFont("cambria", 24)
         self.font_card = pygame.font.SysFont("segoeuisymbol", 28)
-        self.card_sprites = CardSprites()
+        self.card_sprites = CardSprites()  # grafiki kart z assets/Cards
 
+        # stan gry w oknie (fazy: ante -> bonus -> decision -> result)
         self.table = None
         self.phase = "ante"
         self.ante = 0.0
         self.bonus_bet = 0.0
         self.current_bet = 0.0
-        self.message = ""
-        self.reveal_dealer = False
+        self.message = ""  # komunikaty bledow i wynikow
+        self.reveal_dealer = False  # karty krupiera zakryte dopoki nie ma showdownu/foldu
         self.result_lines = []
 
+        # prostokaty przyciskow (klikniecie sprawdzamy w run)
         self.btn_post_ante = pygame.Rect(SCREEN_WIDTH // 2 - 100, 750, 200, 45)
         self.btn_fold = pygame.Rect(SCREEN_WIDTH // 2 - 220, 755, 200, 40)
         self.btn_play = pygame.Rect(SCREEN_WIDTH // 2 + 20, 755, 200, 40)
@@ -57,7 +59,7 @@ class Game:
         self.chips_x = self.chips_base_x
         self.chips_y = self.chips_base_y
         
-        #zxmienne do rozciagania
+        #zmienne do rozciagania
         self.dragging_chips = False
         self.drag_offset_x = 0
         self.drag_offset_y = 0
@@ -126,6 +128,7 @@ class Game:
             self.win_sound.play()
 
     def run_nickname_screen(self):
+        """Ekran startowy - wpisanie nicku przed gra."""
         nickname = ""
 
         while True:
@@ -151,8 +154,8 @@ class Game:
             self.clock.tick(60)
 
     def start_new_hand(self):
+        # reset stołu na kolejne rozdanie
         self.table.prepare_new_deal()
-        #self.table.deal_initial_cards()
         self.phase = "ante"
         self.ante = 0.0
         self.bonus_bet = 0.0
@@ -167,6 +170,7 @@ class Game:
     def try_post_ante(self):
         player = self.table.players[0]
 
+        # walidacja stawki (musi starczyć tez na call 2x ante)
         if self.current_bet < MIN_ANTE:
             self.message = f"Minimalne Ante to {MIN_ANTE:.2f}!"
             return
@@ -178,7 +182,7 @@ class Game:
         player.balance = round(player.balance -self.ante, 2)
                                
         self.current_bet = 0.0
-        self.phase = "bonus"
+        self.phase = "bonus"  # po ante jest opcjonalny bonus AA
         self.message = ""
 
     def try_post_bonus(self):
@@ -197,10 +201,11 @@ class Game:
         self.table.deal_initial_cards()
         self.play_deal_sound()
 
-        self.phase = "decision"
+        self.phase = "decision"  # gracz widzi flop i decyduje fold/graj
         self.message = ""
 
     def do_fold(self):
+        # gracz rezygnuje - traci ante, krupier odsłania karty
         player = self.table.players[0]
         dealer = self.table.dealer
         #Sprawdzenie bonusu
@@ -219,6 +224,7 @@ class Game:
         self.message = f"Spasowales. Tracisz Ante ({self.ante:.2f})." + bonus_msg
         self.reveal_dealer = True
         self.reveal_dealer = True
+        # dokladamy turn i river nawet po foldzie
         for _ in range(2):
             self.table.cards_on_the_table.append(self.table.deck.get_card())
         self.play_deal_sound()
@@ -238,6 +244,7 @@ class Game:
         self.phase = "result"
 
     def do_play(self):
+        # gracz doklada call (2x ante) i jest showdown
         player = self.table.players[0]
         dealer = self.table.dealer
         call_cost = self.ante * 2
@@ -258,7 +265,8 @@ class Game:
             self.table.cards_on_the_table.append(self.table.deck.get_card())
         self.play_deal_sound()
         self.reveal_dealer = True
-                                         
+
+        # porownanie ukladow na showdown
         my_score, _ = HandEvaluator.evaluate_7_cards(player.hand + self.table.cards_on_the_table)
         dealer_score, _ = HandEvaluator.evaluate_7_cards(dealer.hand + self.table.cards_on_the_table)
         my_hand = HandEvaluator.get_hand_string(my_score)
@@ -285,11 +293,13 @@ class Game:
         self.phase = "result"
 
     def render_game(self):
+        """Rysowanie calego ekranu gry co klatke."""
         player = self.table.players[0]
         dealer = self.table.dealer
 
         draw_table(self.display, SCREEN_WIDTH, SCREEN_HEIGHT,)
 
+        # gora ekranu - krupier (karty zakryte dopoki reveal_dealer=False)
         draw_text(self.display, "Krupier", SCREEN_WIDTH // 2, 50, self.font, center=True)
         draw_card_row(
             self.display, dealer.hand, SCREEN_WIDTH // 2, 90,
@@ -302,6 +312,7 @@ class Game:
             face_up=True, card_sprites=self.card_sprites,
         )
 
+        # talia na prawo od stolu
         deck_x = SCREEN_WIDTH // 2 + 360
         deck_y = SCREEN_HEIGHT // 2 - CardSprites.DECK_H // 2
         draw_deck(self.display, deck_x, deck_y, self.card_sprites)
@@ -314,6 +325,7 @@ class Game:
             draw_chips(self.display, SCREEN_WIDTH // 2 - 20, 470, pot_chips)
         # Tekst z saldem gracza
         draw_text(self.display, f"{player.nickname}  |  Saldo: {player.balance:.2f}", SCREEN_WIDTH // 2, 505, self.font_small, center=True)
+        # karty gracza zawsze widoczne
         draw_card_row(
             self.display, player.hand, SCREEN_WIDTH // 2, 545,
             face_up=True, card_sprites=self.card_sprites,
@@ -345,6 +357,7 @@ class Game:
             draw_button(self.display, self.btn_fold, "Fold (F)", self.font_small)
             draw_button(self.display, self.btn_play, f"Graj (G) - {self.ante * 2:.2f}", self.font_small)
 
+        # wynik rozdania - tekst pod kartami zeby sie nie nakladal
         if self.phase == "result":
             y = 660
             if self.message:
@@ -440,6 +453,7 @@ class Game:
         self.table = Table([player, dealer])
         self.start_new_hand()
 
+        # glowna petla pygame - najpierw eventy, potem rysowanie
         running = True
         while running:
             for event in pygame.event.get():
@@ -448,6 +462,7 @@ class Game:
                 elif event.type == pygame.KEYDOWN:
                     if event.key == pygame.K_ESCAPE:
                         running = False
+                    # skroty: G = graj / kolejne rozdanie, F = fold
                     elif event.key == pygame.K_g:
                         if self.phase == "decision":
                             self.do_play()  
@@ -495,6 +510,7 @@ class Game:
                                 self.try_post_bonus()
 
                     elif self.phase == "decision":
+                        # fold / graj
                         if self.btn_fold.collidepoint(event.pos):
                             self.do_fold()
                         elif self.btn_play.collidepoint(event.pos):
@@ -502,6 +518,7 @@ class Game:
                             
                     elif self.phase == "result":
                         if self.btn_next.collidepoint(event.pos):
+                            # koniec gry albo nowe rozdanie
                             if player.balance <= 0:
                                 self.phase = "game_over"
                                 self.message = "Brak srodkow. Koniec gry."
@@ -530,6 +547,6 @@ class Game:
 
             self.render_game()
             pygame.display.flip()
-            self.clock.tick(60)
+            self.clock.tick(60)  # ~60 FPS
 
         pygame.quit()

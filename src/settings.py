@@ -6,9 +6,9 @@ SCREEN_HEIGHT = 800
 SCREEN_WIDTH = 1200
 DEFAULT_CASINO_BALANCE = 1000000000000
 DEFAULT_PLAYER_BALANCE = 200
-MIN_ANTE = 1.0
+MIN_ANTE = 1.0  # minimalna stawka poczatkowa
 
-CARD_WIDTH = 70
+CARD_WIDTH = 70   # rozmiar karty na ekranie
 CARD_HEIGHT = 100
 
-ASSETS_DIR = BASE_DIR / "assets"
+ASSETS_DIR = BASE_DIR / "assets"  # grafiki, dzwieki itd.
