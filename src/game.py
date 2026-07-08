@@ -72,11 +72,13 @@ class Game:
         self.bonus_bet = 0.0
         self.current_bet = 0.0
 
-        pygame.mixer.init()
+        
+        pygame.mixer.init()#umiejscowienie regulatora głośności
         self.volume = 0.2
         self.btn_vol_down = pygame.Rect(SCREEN_WIDTH - 140, 15, 35, 35)
         self.btn_vol_up = pygame.Rect(SCREEN_WIDTH - 35, 15, 35, 35)
 
+        #Muzyka w tle i dzwięki akcji:
         self.deal_sound = None
         sound_path = ASSETS_DIR / "deal.wav"
         if sound_path.exists():
@@ -101,7 +103,7 @@ class Game:
             pygame.mixer.music.set_volume(self.volume)
             pygame.mixer.music.play(-1) 
 
-    def change_volume(self, amount):
+    def change_volume(self, amount): #regulacja głośności
         self.volume += amount
 
         self.volume = max(0.0, min(1.0, self.volume))
@@ -185,9 +187,9 @@ class Game:
         self.phase = "bonus"  # po ante jest opcjonalny bonus AA
         self.message = ""
 
-    def try_post_bonus(self):
+    def try_post_bonus(self): 
         player = self.table.players[0]
-        max_bonus = round(player.balance - (self.ante * 2), 2)
+        max_bonus = round(player.balance - (self.ante * 2), 2) #sprawdzamy jaki max bonus gracz może postawić
 
         if self.current_bet > max_bonus:
             self.message = f"Za malo srodkow! Max Bonus: {max_bonus:.2f}"
@@ -330,14 +332,13 @@ class Game:
             self.display, player.hand, SCREEN_WIDTH // 2, 545,
             face_up=True, card_sprites=self.card_sprites,
 
-        )
+        )#rysujemy regulator głośności
         draw_text(self.display, "Vol", self.btn_vol_down.centerx - 45, self.btn_vol_down.centery, self.font_small, GOLD, center=True)
         draw_text(self.display, "-", self.btn_vol_down.centerx, self.btn_vol_down.centery, self.font, GOLD, center=True)
         mid_x = (self.btn_vol_down.centerx + self.btn_vol_up.centerx) // 2
         draw_text(self.display, f"{int(self.volume * 100)}%",  mid_x, self.btn_vol_down.centery, self.font_small, WHITE, center=True)
         draw_text(self.display, "+", self.btn_vol_up.centerx, self.btn_vol_up.centery, self.font, GOLD, center=True)
         
-
         if self.message and self.phase in ("ante", "game_over"):
             color = GOLD if "WYGRANA" in self.message else WHITE
             if "Przegrana" in self.message or "Spasowales" in self.message or "Minimalne" in self.message:
@@ -413,7 +414,7 @@ class Game:
             draw_text(self.display, "Brak srodkow. Koniec gry.", SCREEN_WIDTH // 2, 685, self.font_small, RED, center=True)
             draw_text(self.display, "Nowa Gra (G) | Zamknij okno (Esc)", SCREEN_WIDTH // 2, 720, self.font_small, WHITE, center=True)
 
-        #Tabela wypłat
+        #Tabela wypłat bounsów
         table_w = 320
         table_h = 190
         table_x = 20 
@@ -479,7 +480,7 @@ class Game:
                     elif event.key == pygame.K_f and self.phase == "decision":
                         self.do_fold()
 
-                elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+                elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1: #System betowania za pomoca klikania myszką
 
                     if self.btn_vol_down.collidepoint(event.pos):
                         self.change_volume(-0.1)

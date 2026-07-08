@@ -140,7 +140,7 @@ class HandEvaluator:
             return f"{base_name} {to_symbol(kickers[0])}"
         
     @staticmethod
-    def get_bonus_multiplier(score):
+    def get_bonus_multiplier(score): #sprawdzamy jaki mnożnik dla obstawionej kwoty bonusu
         hand_type = score[0]
         kickers = score[1]
 
