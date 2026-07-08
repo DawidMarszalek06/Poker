@@ -60,11 +60,11 @@ def draw_table(surface: pygame.Surface, width: int, height: int):
 
 BLUE = (40, 80, 200)
 
-# Zmień całą funkcję draw_chips na tę wersję:
+
 def draw_chips(surface, x, y, chip_colors):
     if not chip_colors:
         return
-        
+    chip_colors = chip_colors[:80]#dodajemy zeby max stackow ze zetonami bylo 8
     for i, color in enumerate(chip_colors):
             # Dzielenie całkowite (//) dzieki temu wiemy ktory stos modyfikuejmy
             nr_stosu = i // 10 
@@ -76,7 +76,7 @@ def draw_chips(surface, x, y, chip_colors):
             cx = x + (nr_stosu * 40)
             cy = y - (pozycja_w_stosie * 4)
             
-            # Rysujemy żeton we właściwym miejscu
+            # Rysujemy żetony we właściwym miejscu
             pygame.draw.circle(surface, color, (cx, cy), 18)
             pygame.draw.circle(surface, WHITE, (cx, cy), 18, 2)
             pygame.draw.circle(surface, (20, 20, 20), (cx, cy), 10, 1)
